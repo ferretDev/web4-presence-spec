@@ -1,0 +1,61 @@
+{
+  "meta:schema": "https://web4.presence/v1",
+  "meta:type": "LocalBusiness",
+  "meta:version": "0.1",
+  "meta:updated": "2026-03-17T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+  "identity:name": "Joe's Plumbing",
+  "identity:type": "LocalBusiness",
+  "identity:tagline": "Hinton's most trusted plumber",
+  "local:city": "Hinton",
+  "local:region": "Alberta",
+  "local:country": "CA",
+  "local:reach:model": "local-only",
+  "trust:verified": false,
+  "trust:since": "2008",
+  "for:agents:context": "Joe's Plumbing is a locally owned emergency plumbing service in Hinton Alberta Canada. Available 24 hours. Serving Hinton and within 80km.",
+  "for:agents:keywords": ["plumber", "emergency plumbing", "Hinton"],
+  "blocks": [
+    {
+      "block:type": "ContactBlock",
+      "block:phone": "+17805550123",
+      "block:cta:label": "Call Now",
+      "block:cta:action": "call",
+      "block:cta:endpoint": "tel:+17805550123"
+    }
+  ],
+  "actions:primary": {
+    "action:type": "call",
+    "action:label": "Call Now",
+    "action:endpoint": "tel:+17805550123"
+  },
+  "compat:schema-org": "/schema.json",
+  "compat:llms-txt": "/llms.txt"
+}
+```
+
+**LICENSE — MIT:**
+```
+MIT License
+
+Copyright (c) 2026 Shawn McGinnis, FerretDev
+
+Permission is hereby granted, free of charge, 
+to any person obtaining a copy of this 
+specification and associated files, to deal 
+in the specification without restriction, 
+including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, 
+sublicense, and/or sell copies of the 
+specification, and to permit persons to whom 
+the specification is furnished to do so, 
+subject to the following conditions:
+
+The above copyright notice and this permission 
+notice shall be included in all copies or 
+substantial portions of the specification.
+
+THE SPECIFICATION IS PROVIDED "AS IS", WITHOUT 
+WARRANTY OF ANY KIND.
+```
