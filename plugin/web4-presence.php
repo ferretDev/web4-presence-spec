@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Web4 Presence Spec
  * Description: Publishes agentic presence.w4 data for LLM/agentic SEO. Auto-imports SEO plugin data, supports manual overrides, does robust llms.txt, robots.txt, and settings admin.
- * Version: 1.1.0
+ * Version: 0.1.0
  * Author: Shawn McGinnis, FerretDev
  * License: GPL2 or later
  * Text Domain: web4-presence
