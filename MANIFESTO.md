@@ -64,35 +64,6 @@ presence.w4:
   Useful data:  ~2kb
   Ratio:        1:1
 ```
-The Agentic Shift
-Search was probabilistic.
-Presence is deterministic.
-A search engine guesses you offer web design.
-An AI agent knows you are a ServiceBlock.
-In the agentic internet, users don't browse.
-They prompt.
-"Find me a local designer who takes barter."
-No Google. No crawl. No keyword match.
-The agent queries the Presence Vector Space.
-Businesses with a .w4 file are queryable.
-Businesses without one are invisible.
-This is not SEO.
-SEO optimizes how humans find pages.
-Presence defines how agents understand entities.
-The shift:
-SEO era
-  Unit:       Page
-  Signal:     Keywords, backlinks
-  Discovery:  Search ranking
-
-Presence era
-  Unit:       Entity  
-  Signal:     Attributes, identity
-  Discovery:  Agent query
-Token efficiency matters too.
-One .w4 file fits where one webpage won't.
-Agents prioritize what they can afford to read.
-Be readable. Be queryable. Be present
 
 ## The Standard
 
