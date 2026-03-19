@@ -156,5 +156,3 @@ GitHub: github.com/ferretDev/web4-presence-spec
 FerretDev, Hinton Alberta Canada
 March 17, 2026
 ```
-
-Paste it. Commit it. Sleep.
