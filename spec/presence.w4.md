@@ -19,6 +19,7 @@ File extension: `.w4`
 
 Primary (recommended):
 ```
+yourdomain.com/presence.w4          (direct — simplest)
 yourdomain.com/.well-known/presence.w4
 ```
 
