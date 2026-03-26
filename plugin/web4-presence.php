@@ -21,7 +21,7 @@ if ( version_compare( PHP_VERSION, '7.4', '<' ) ) {
 }
 
 define( 'WEB4_PRESENCE_CONTEXT_OPTION', 'web4_presence_settings' );
-define( 'WEB4_PRESENCE_VERSION', '1.1.0' );
+define( 'WEB4_PRESENCE_VERSION', '0.1.0' );
 define( 'WEB4_PRESENCE_LLMSTXT_HEADER', "# --- WEB4 PRESENCE SPEC START ---\n" );
 define( 'WEB4_PRESENCE_LLMSTXT_FOOTER', "# --- WEB4 PRESENCE SPEC END ---\n" );
 
