@@ -113,7 +113,7 @@ Required fields only        40/100
 ## Minimum Valid File
 ```json
 {
-  "meta:schema": "https://web4.presence/v1",
+  "meta:schema": "https://web4presence.org/schema/2026-03-17",
   "meta:type": "LocalBusiness",
   "meta:version": "0.1",
   "meta:updated": "2026-03-17T14:00:00Z",
