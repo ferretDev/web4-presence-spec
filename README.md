@@ -104,12 +104,12 @@ The case for `presence.w4` and what it means for the AI-agent web is in [MANIFES
 
 Ready-to-use examples for each `identity:type` are in `examples/`:
 
-- `localbusiness.w4.json`
-- `organization.w4.json`
-- `service.w4.json`
-- `product.w4.json`
-- `person.w4.json`
-- `article.w4.json`
+- `localbusiness.w4`
+- `organization.w4`
+- `service.w4`
+- `product.w4`
+- `person.w4`
+- `article.w4`
 
 ## Contribute
 

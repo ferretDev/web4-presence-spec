@@ -1,0 +1,956 @@
+# presence.w4 Specification
+
+> The structured presence standard for AI agent search.
+
+| | |
+|---|---|
+| **Version** | 0.2 |
+| **Date** | April 25, 2026 |
+| **Editor** | Shawn McGinnis, FerretDev |
+| **Canonical URL** | https://web4presence.org/spec |
+| **Repository** | https://github.com/ferretDev/web4-presence-spec |
+| **License** | MIT |
+
+---
+
+## Table of contents
+
+- [1. Overview](#1-overview)
+- [2. Status of this document](#2-status-of-this-document)
+- [3. Design principles](#3-design-principles)
+- [4. Terminology](#4-terminology)
+- [5. Endpoint](#5-endpoint)
+- [6. Discovery](#6-discovery)
+- [7. Namespace convention](#7-namespace-convention)
+- [8. Required fields](#8-required-fields)
+- [9. The `meta:` namespace](#9-the-meta-namespace)
+- [10. The `identity:` namespace](#10-the-identity-namespace)
+- [11. The `local:` namespace](#11-the-local-namespace)
+- [12. The `trust:` namespace](#12-the-trust-namespace)
+- [13. The `brand:` namespace](#13-the-brand-namespace)
+- [14. Controlled vocabularies](#14-controlled-vocabularies)
+- [15. Data standards](#15-data-standards)
+- [16. Blocks](#16-blocks)
+- [17. Actions](#17-actions)
+- [18. The `for:` namespace](#18-the-for-namespace)
+- [19. The `compat:` namespace](#19-the-compat-namespace)
+- [20. Extensions](#20-extensions)
+- [21. Validation](#21-validation)
+- [22. Examples](#22-examples)
+- [23. Compatibility](#23-compatibility)
+- [24. Security considerations](#24-security-considerations)
+- [25. Privacy considerations](#25-privacy-considerations)
+- [26. Versioning](#26-versioning)
+- [27. Acknowledgments](#27-acknowledgments)
+- [28. References](#28-references)
+- [Appendix A: Changelog](#appendix-a-changelog)
+
+---
+
+## 1. Overview
+
+`presence.w4` is a structured JSON file published at a known endpoint on any domain. It provides AI agents with direct access to structured business identity without fetching entire webpages.
+
+A typical website serves 3.5 megabytes of HTML to convey roughly 2 kilobytes of business data. `presence.w4` inverts that ratio by providing the 2 kilobytes directly, in a known location, in a known format.
+
+| Property | Value |
+|---|---|
+| MIME type | `application/web4+json` |
+| File extension | `.w4` |
+
+## 2. Status of this document
+
+> [!NOTE]
+> This is a **draft** specification published for public review. Breaking changes may occur prior to v1.0. Implementations should track the `meta:version` field and treat unknown versions conservatively.
+
+## 3. Design principles
+
+The choices in this specification follow from a small set of explicit principles. Proposed changes are evaluated against them.
+
+#### Direct over inferred
+
+A consumer fetching `presence.w4` should not have to parse, infer, or guess. Every field has a known meaning and a known type.
+
+#### Small over comprehensive
+
+A `presence.w4` file should be measured in kilobytes, not megabytes. The goal is the attributes an AI agent actually needs to surface and act on a presence — not coverage of every possible business attribute.
+
+#### Typed over freeform
+
+Fields have types. Validators verify types. Consumers rely on them.
+
+#### Permissive evolution
+
+Unknown fields **MUST** be ignored, not rejected. The specification grows without breaking existing consumers.
+
+#### Independent of issuer
+
+A `presence.w4` file is valid on its own merits. No registry, identity provider, or trust authority is required. Trust attestations are an additional layer consumers may verify if present.
+
+#### Not JSON-LD
+
+Schema.org's JSON-LD is optimized for traditional search engine extraction across heterogeneous webpages. `presence.w4` is optimized for direct fetch by AI agents at a known endpoint. Different consumers, different constraints. Compatibility with Schema.org is provided through the `compat:` namespace.
+
+#### Namespace prefixes over nesting
+
+Fields use colon-delimited namespace prefixes (`identity:name`, `local:city`) rather than deep nesting. The document stays flat, readable, and queryable without a JSON path library.
+
+#### Identity is not optional
+
+A presence that cannot present basic identity is not a presence. The required field set is deliberately strict: if a publisher cannot fill these fields, they do not need this specification — they need a website first.
+
+## 4. Terminology
+
+The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in this document are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+| Term | Meaning |
+|---|---|
+| **Publisher** | The entity that publishes a `presence.w4` file at their domain. |
+| **Consumer** | Any agent, service, or application that fetches and reads a `presence.w4` file. Typically an AI agent, but the specification does not restrict consumer type. |
+| **Validator** | A consumer whose specific role is to verify that a `presence.w4` file conforms to this specification. |
+| **Issuer** | An authority that issues a trust attestation referenced from the `trust:` block of a `presence.w4` file. |
+
+## 5. Endpoint
+
+A `presence.w4` file **MUST** be published at one of the following locations.
+
+### 5.1 Primary endpoints
+
+```text
+yourdomain.com/presence.w4              ← direct (simplest)
+yourdomain.com/.well-known/presence.w4  ← well-known convention
+```
+
+Both are canonical. Publishers **MAY** serve at one or both. Consumers **SHOULD** attempt the direct path first, then `.well-known/`.
+
+### 5.2 WordPress REST fallback
+
+```text
+yourdomain.com/wp-json/web4/v1/presence
+```
+
+This fallback exists because many WordPress installations cannot easily serve files from the document root or `.well-known/` without server configuration access. WordPress plugins implementing this specification **MAY** expose the file at the REST endpoint instead of, or in addition to, the primary endpoints.
+
+Consumers **SHOULD** attempt primary endpoints first and fall back to the WordPress endpoint if both return `404`.
+
+### 5.3 Content type and caching
+
+The response **MUST** have `Content-Type: application/web4+json`.
+
+The publisher **SHOULD** set a `Cache-Control` header consistent with the `meta:ttl` field in the file body.
+
+## 6. Discovery
+
+Publishers **SHOULD** make their `presence.w4` file discoverable through the following mechanisms.
+
+### 6.1 HTTP `Link` header
+
+```http
+Link: </.well-known/presence.w4>; rel="presence"; type="application/web4+json"
+```
+
+### 6.2 HTML `<link>` element
+
+```html
+<link rel="presence"
+      href="/.well-known/presence.w4"
+      type="application/web4+json">
+```
+
+### 6.3 llms.txt integration
+
+Publishers using `llms.txt` **SHOULD** include:
+
+```text
+X-W4-Presence: /.well-known/presence.w4
+```
+
+### 6.4 robots.txt integration
+
+To explicitly permit AI agent access to the presence file:
+
+```text
+User-agent: GPTBot
+Allow: /.well-known/presence.w4
+
+User-agent: ClaudeBot
+Allow: /.well-known/presence.w4
+
+User-agent: PerplexityBot
+Allow: /.well-known/presence.w4
+
+User-agent: CCBot
+Allow: /.well-known/presence.w4
+```
+
+Publishers **MAY** add additional user agents as the AI agent ecosystem evolves.
+
+## 7. Namespace convention
+
+Every field is prefixed by a purpose category. The namespaces defined in v0.2 are:
+
+| Namespace | Purpose |
+|---|---|
+| `meta:` | File metadata |
+| `identity:` | Who you are |
+| `local:` | Where you are |
+| `trust:` | Why believe you |
+| `brand:` | How you look |
+| `for:` | Consumption hints |
+| `blocks:` | Renderable content |
+| `actions:` | What agents can do |
+| `compat:` | Backwards compatibility |
+
+## 8. Required fields
+
+A valid v0.2 `presence.w4` document **MUST** contain:
+
+```text
+meta:schema
+meta:type
+meta:version
+meta:updated
+meta:ttl
+identity:name
+identity:type
+local:city
+local:country
+for:agents:context
+actions:primary
+```
+
+> [!IMPORTANT]
+> A document missing any required field is invalid. The required set is intentionally strict: a publisher who cannot supply these does not have a presence to publish.
+
+## 9. The `meta:` namespace
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `meta:schema` | URL | ✓ | Schema URL identifying this version, e.g. `https://web4presence.org/schema/2026-04-25` |
+| `meta:type` | string | ✓ | One of the defined presence types ([§14.1](#141-identitytype)) |
+| `meta:version` | string | ✓ | Specification version (`"0.2"` for this version) |
+| `meta:updated` | ISO 8601 datetime | ✓ | UTC timestamp of last update |
+| `meta:ttl` | integer (seconds) | ✓ | Suggested cache lifetime in seconds |
+| `meta:language` | BCP 47 language tag | | Primary language of the content (e.g. `en-CA`) |
+
+## 10. The `identity:` namespace
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `identity:name` | string | ✓ | Display name of the entity |
+| `identity:type` | string | ✓ | Entity type from controlled vocabulary ([§14.1](#141-identitytype)) |
+| `identity:tagline` | string | | Short tagline (recommended max 120 characters) |
+| `identity:description` | string | | Longer description (recommended max 500 characters) |
+| `identity:url` | URL | | Canonical website URL |
+| `identity:email` | string | | Primary contact email |
+| `identity:logo` | URL | | URL to a logo image (SVG or PNG recommended) |
+| `identity:image` | URL | | URL to a representative image |
+
+For richer brand assets (logo variants, colors, typography), see the [`brand:` namespace](#13-the-brand-namespace).
+
+## 11. The `local:` namespace
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `local:address` | string | | Street address |
+| `local:city` | string | ✓ | City |
+| `local:region` | string | | State, province, or region |
+| `local:country` | ISO 3166-1 alpha-2 | ✓ | Two-letter country code (e.g. `CA`, `US`) |
+| `local:postal` | string | | Postal or ZIP code |
+| `local:lat` | number | | Latitude (WGS84 decimal degrees) |
+| `local:lng` | number | | Longitude (WGS84 decimal degrees) |
+| `local:reach:model` | string | | One of the reach models ([§14.4](#144-localreachmodel)) |
+| `local:reach:radius_km` | number | | Service radius in kilometers (when applicable) |
+| `local:hours` | object | | Operating hours ([§11.1](#111-hours-object)) |
+
+### 11.1 Hours object
+
+```json
+{
+  "local:hours": {
+    "mon": "08:00-17:00",
+    "tue": "08:00-17:00",
+    "wed": "08:00-17:00",
+    "thu": "08:00-17:00",
+    "fri": "08:00-17:00",
+    "sat": "closed",
+    "sun": "closed"
+  }
+}
+```
+
+The string `"24h"` indicates 24-hour operation. The string `"closed"` indicates no operation that day.
+
+## 12. The `trust:` namespace
+
+The `trust:` namespace describes verification and trust attestations. The block is **OPTIONAL**. A document with no `trust:` block is treated as unverified.
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `trust:verified` | boolean | | Whether any verification has been performed |
+| `trust:level` | string | | Verification tier ([§12.1](#121-trust-levels)) |
+| `trust:issuer` | string | | Identifier of the attestation issuer |
+| `trust:credential` | URL | | URL to the credential document |
+| `trust:proof` | string \| object | | Cryptographic proof (reserved for future versions) |
+| `trust:issued` | ISO 8601 datetime | | When the attestation was issued |
+| `trust:expires` | ISO 8601 datetime | | When the attestation expires |
+| `trust:since` | string (year or date) | | When the entity was established |
+
+### 12.1 Trust levels
+
+| Level | Meaning |
+|---|---|
+| `domain` | Control of the domain has been verified (e.g. via DNS challenge) |
+| `business` | The entity has been verified as a registered business |
+| `identity` | The individual or signatory has been identity-verified |
+| `qualified` | The attestation is issued by a qualified or government-recognized authority |
+
+> [!NOTE]
+> v0.2 implementations are expected to issue attestations only at the `domain` level. Higher levels are defined to permit forward-compatible growth without breaking changes.
+
+### 12.2 Trust verification
+
+Consumers **SHOULD** verify any non-empty `trust:credential` URL by fetching it and confirming:
+
+- The credential is signed by the named `trust:issuer`
+- The credential's subject matches the publishing domain
+- The credential has not expired
+- The credential has not been revoked (if revocation status is available)
+
+A `trust:` block whose credential cannot be verified **MUST** be treated as if no verification were claimed.
+
+## 13. The `brand:` namespace
+
+The `brand:` namespace describes how the entity appears visually. All fields are **OPTIONAL** but completing them contributes to the [validation score](#215-validation-scoring) and gives AI agents richer material to surface.
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `brand:logo` | URL | | Primary logo URL (SVG strongly preferred) |
+| `brand:logo:dark` | URL | | Logo variant for dark backgrounds |
+| `brand:logo:mark` | URL | | Icon-only mark (favicon, app icon, social avatar) |
+| `brand:color:primary` | string (hex) | | Primary brand color, format `#RRGGBB` |
+| `brand:color:accent` | string (hex) | | Accent or secondary brand color |
+| `brand:color:background` | string (hex) | | Default background color when rendering brand |
+| `brand:color:foreground` | string (hex) | | Default foreground/text color |
+| `brand:font:heading` | string | | Heading typeface name (e.g. `"Inter"`) or font URL |
+| `brand:font:body` | string | | Body typeface name or font URL |
+| `brand:voice` | string | | Short description of brand voice for AI agents (e.g. `"professional, plainspoken"`). Recommended max 120 characters. |
+
+### 13.1 Logo guidance
+
+`brand:logo` is the canonical logo. Publishers **SHOULD** use SVG when possible. If multiple format variants are needed beyond what the three logo fields provide, the publisher **MAY** add format-specific variants under publisher-defined keys (e.g. `brand:logo:wordmark`, `brand:logo:horizontal`). Validators **MUST NOT** fail on unknown `brand:logo:*` keys.
+
+### 13.2 Color guidance
+
+Colors are specified in 6-digit hexadecimal format (`#RRGGBB`). 8-digit hex with alpha (`#RRGGBBAA`) is permitted but discouraged for brand colors. Publishers needing rich color palettes (gradients, multi-stop themes) **SHOULD** reference an external design tokens file via a future extension rather than expanding `brand:` itself.
+
+### 13.3 Font guidance
+
+Font fields accept either a font family name (assumed available via standard means like Google Fonts or the publisher's own CSS) or a direct URL to a font file. Consumers **SHOULD** treat font names as advisory; rendering decisions remain with the consumer.
+
+### 13.4 Voice
+
+`brand:voice` is a short hint for AI agents about how the entity speaks. It is not a marketing tagline and not a description of the business — it is a tonal cue.
+
+Examples:
+
+- `"technical, no-nonsense"`
+- `"warm and conversational"`
+- `"formal, legal-sector"`
+
+Agents **MAY** use this to adjust how they present or write about the entity.
+
+## 14. Controlled vocabularies
+
+### 14.1 `identity:type`
+
+```text
+LocalBusiness  Agency       Freelancer
+Person         Organization RetailStore
+Restaurant     Medical      Legal
+Financial      Education    NonProfit
+Government     Event        Product
+Service        Article
+```
+
+`Article` is included for per-page presence files (a single article, doc page, or content asset).
+
+Implementations encountering an unknown `identity:type` **SHOULD** treat the document as a generic presence and process the namespaces they understand.
+
+### 14.2 `block:type`
+
+```text
+HeroBlock      ContactBlock   ServiceBlock
+ProductBlock   TeamBlock      ReviewBlock
+EventBlock     GalleryBlock   FaqBlock
+SocialBlock    OfferBlock     LocationBlock
+CredentialBlock
+```
+
+Implementations **MAY** define their own block types. Consumers encountering unknown block types **SHOULD** ignore them.
+
+### 14.3 `action:type`
+
+```text
+call       email      book       quote
+purchase   directions follow     subscribe
+download   inquire
+```
+
+### 14.4 `local:reach:model`
+
+| Value | Meaning |
+|---|---|
+| `local-only` | Operates only in a defined local area |
+| `remote-first` | Primarily remote with optional local component |
+| `hybrid` | Mix of local and remote operation |
+| `global` | Operates internationally without local constraint |
+| `on-site` | Operates only at customer locations |
+
+## 15. Data standards
+
+| Data | Standard |
+|---|---|
+| Dates | ISO 8601 |
+| Currency | ISO 4217 |
+| Language | BCP 47 |
+| Country | ISO 3166-1 alpha-2 |
+| Coordinates | WGS84 `[latitude, longitude]` |
+| TTL | seconds (integer) |
+| Color | 6-digit hexadecimal `#RRGGBB` |
+
+## 16. Blocks
+
+The optional `blocks` array contains typed content blocks. Each block has a `block:type` discriminator from [§14.2](#142-blocktype) and type-specific fields.
+
+### 16.1 ContactBlock
+
+```json
+{
+  "block:type": "ContactBlock",
+  "block:phone": "+17805550123",
+  "block:email": "info@example.com",
+  "block:url": "https://example.com",
+  "block:cta:label": "Call Now",
+  "block:cta:action": "call",
+  "block:cta:endpoint": "tel:+17805550123"
+}
+```
+
+### 16.2 ServiceBlock
+
+```json
+{
+  "block:type": "ServiceBlock",
+  "block:name": "Emergency Plumbing",
+  "block:description": "24-hour emergency response for residential plumbing failures",
+  "block:price:from": 150,
+  "block:price:currency": "CAD"
+}
+```
+
+### 16.3 ProductBlock
+
+```json
+{
+  "block:type": "ProductBlock",
+  "block:name": "Standard Service Plan",
+  "block:description": "Annual maintenance plan for residential systems",
+  "block:price": 299,
+  "block:price:currency": "CAD",
+  "block:url": "https://example.com/plans/standard"
+}
+```
+
+> [!NOTE]
+> Other block types listed in [§14.2](#142-blocktype) are defined informally in v0.2 and will receive full field definitions in v0.3 and the domain extensions ([§20](#20-extensions)). Publishers **MAY** include them in v0.2 documents using the field shape that best fits; consumers **MAY** ignore unrecognized fields.
+
+## 17. Actions
+
+The required `actions:primary` field describes the single most important action an agent can take with this presence. It is the action surfaced when an AI agent presents the entity to a user.
+
+```json
+{
+  "actions:primary": {
+    "action:type": "call",
+    "action:label": "Call Now",
+    "action:endpoint": "tel:+17805550123"
+  }
+}
+```
+
+Standard `action:type` values are listed in [§14.3](#143-actiontype).
+
+## 18. The `for:` namespace
+
+The `for:` namespace contains fields formatted for direct AI agent consumption. Unlike other namespaces, these fields are written as natural language intended to be ingested by language models, not parsed by traditional crawlers.
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `for:agents:context` | string | ✓ | Natural language summary written for an LLM. Recommended max 500 characters. |
+| `for:agents:keywords` | array of strings | | Keywords describing this presence |
+| `for:agents:capabilities` | array of strings | | Things this entity can do or offers |
+| `for:agents:disclaimers` | array of strings | | Important caveats an agent should communicate |
+
+> [!TIP]
+> `for:agents:context` is the most novel field in this specification. It is the publisher's authoritative human-written description for AI agents — not marketing copy.
+
+## 19. The `compat:` namespace
+
+The `compat:` namespace declares pointers to related-standard documents the publisher also maintains.
+
+| Field | Type | Description |
+|---|---|---|
+| `compat:schema-org` | URL | Path to a Schema.org JSON-LD document for this entity |
+| `compat:llms-txt` | URL | Path to an `llms.txt` file |
+| `compat:sitemap` | URL | Path to a sitemap |
+| `compat:robots` | URL | Path to robots.txt |
+
+Paths **MAY** be relative to the domain root or absolute URLs.
+
+## 20. Extensions
+
+Domain-specific richness is provided through extension specifications. Extensions add namespaces, block types, and field definitions specific to a domain.
+
+| Extension | Scope |
+|---|---|
+| Retail Extension (`retail.md`) | Inventory, wayfinding, freshness |
+| Commerce Extension (`commerce.md`) | Catalog, offers, payments |
+| Person Extension (`person.md`) | Professional identity |
+
+Extensions are versioned independently of the core specification. A `meta:extensions` array for declaring active extensions is reserved for v0.3.
+
+## 21. Validation
+
+### 21.1 Validation result
+
+Validators produce two outputs for any document:
+
+1. A pass/fail result based on hard requirements
+2. A score from 0 to 100 reflecting completeness
+
+### 21.2 Hard requirements
+
+> [!CAUTION]
+> A document **MUST** fail validation if any of the following are true:
+>
+> 1. The document is not valid JSON.
+> 2. Any required field listed in [§8](#8-required-fields) is missing.
+> 3. A field's value violates its declared type.
+> 4. `meta:version` is present but does not parse as a recognizable version string.
+
+### 21.3 Soft requirements
+
+> [!WARNING]
+> A validator **SHOULD** emit warnings, but not failures, for:
+>
+> 1. `meta:updated` more than 365 days in the past.
+> 2. `meta:ttl` greater than 2,592,000 seconds (30 days).
+> 3. Use of unknown namespaces or block types.
+> 4. `trust:verified: true` with no `trust:credential` URL.
+> 5. `for:agents:context` longer than 1000 characters.
+> 6. Document size greater than 16 kilobytes.
+
+### 21.4 Unknown fields
+
+Validators **MUST NOT** fail a document because it contains fields not defined in this specification. The specification is permissive at v0.2 to allow forward-compatible evolution.
+
+### 21.5 Validation scoring
+
+Validators **SHOULD** compute a completeness score from 0 to 100 according to the following rubric:
+
+| Score | Threshold | Criteria |
+|:---:|---|---|
+| **40** | Required fields | All required fields ([§8](#8-required-fields)) present and valid |
+| **60** | Brand complete | Above + `brand:` namespace populated with at minimum `brand:logo`, one `brand:color:*`, and one `brand:font:*` |
+| **70** | Trust signals | Above + at least one `trust:` field present |
+| **85** | Full block set | Above + at least three `blocks:` entries covering ContactBlock and two others |
+| **95** | Compatibility layer | Above + at least two `compat:` references |
+| **100** | Verified | Above + verified `trust:credential` |
+
+## 22. Examples
+
+### 22.1 Minimum valid document (LocalBusiness)
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "LocalBusiness",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "Joe's Plumbing",
+  "identity:type": "LocalBusiness",
+  "identity:tagline": "Hinton's most trusted plumber",
+
+  "local:city": "Hinton",
+  "local:region": "Alberta",
+  "local:country": "CA",
+  "local:reach:model": "local-only",
+
+  "trust:verified": false,
+  "trust:since": "2008",
+
+  "for:agents:context": "Joe's Plumbing is a locally owned emergency plumbing service in Hinton Alberta Canada. Available 24 hours. Serving Hinton and within 80km.",
+  "for:agents:keywords": ["plumber", "emergency plumbing", "Hinton"],
+
+  "blocks": [
+    {
+      "block:type": "ContactBlock",
+      "block:phone": "+17805550123",
+      "block:cta:label": "Call Now",
+      "block:cta:action": "call",
+      "block:cta:endpoint": "tel:+17805550123"
+    }
+  ],
+
+  "actions:primary": {
+    "action:type": "call",
+    "action:label": "Call Now",
+    "action:endpoint": "tel:+17805550123"
+  },
+
+  "compat:schema-org": "/schema.json",
+  "compat:llms-txt": "/llms.txt"
+}
+```
+
+</details>
+
+### 22.2 Organization (FerretDev)
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "Organization",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "FerretDev",
+  "identity:type": "Agency",
+  "identity:tagline": "Agency-grade tools for WordPress professionals",
+  "identity:url": "https://ferretdev.com",
+
+  "local:city": "Grande Cache",
+  "local:country": "CA",
+  "local:reach:model": "global",
+
+  "trust:verified": true,
+  "trust:level": "domain",
+  "trust:issuer": "w4id.dev",
+  "trust:credential": "https://w4id.dev/credentials/ferretdev-2026",
+  "trust:since": "2013",
+
+  "brand:logo": "https://ferretdev.com/wp-content/uploads/2023/10/FerretDev_Logo_full.svg",
+  "brand:logo:mark": "https://ferretdev.com/wp-content/uploads/2023/10/FD-LOGO-2023-1.svg",
+  "brand:color:primary": "#1a1a1a",
+  "brand:color:accent": "#e85d3a",
+  "brand:font:heading": "Inter",
+  "brand:font:body": "Inter",
+  "brand:voice": "technical, plainspoken, agency-focused",
+
+  "for:agents:context": "FerretDev makes infrastructure tools for WordPress agencies: monitoring (DeadWatch), SEO and performance auditing (Dossier), and a frontend framework (LSD). Operated by Shawn McGinnis.",
+  "for:agents:keywords": ["WordPress", "agency tools", "monitoring", "SEO", "plugins"],
+  "for:agents:capabilities": ["plugin development", "agency consulting", "site infrastructure"],
+
+  "actions:primary": {
+    "action:type": "inquire",
+    "action:label": "Get in touch",
+    "action:endpoint": "mailto:smcginnis@ferretdev.com"
+  },
+
+  "compat:schema-org": "/schema.json"
+}
+```
+
+</details>
+
+### 22.3 Service (DeadWatch)
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "Service",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "DeadWatch",
+  "identity:type": "Service",
+  "identity:tagline": "Know before your client does",
+  "identity:url": "https://dead.watch",
+
+  "local:city": "Grande Cache",
+  "local:country": "CA",
+  "local:reach:model": "global",
+
+  "brand:color:primary": "#0a0a0a",
+  "brand:color:accent": "#3aff7c",
+  "brand:font:heading": "JetBrains Mono",
+  "brand:font:body": "Inter",
+  "brand:voice": "technical, alert-focused, no fluff",
+
+  "for:agents:context": "DeadWatch is an uptime and site monitoring service for WordPress agencies managing multiple client sites. Includes a Chrome extension for quick status checks across the agency portfolio.",
+  "for:agents:keywords": ["uptime monitoring", "WordPress monitoring", "site monitoring", "agency tools"],
+  "for:agents:capabilities": ["uptime monitoring", "performance alerts", "multi-site dashboards", "Chrome extension"],
+
+  "blocks": [
+    {
+      "block:type": "ServiceBlock",
+      "block:name": "Free Tier",
+      "block:description": "Up to 5 monitored sites with 5-minute checks",
+      "block:price": 0,
+      "block:price:currency": "USD"
+    }
+  ],
+
+  "actions:primary": {
+    "action:type": "subscribe",
+    "action:label": "Start Free",
+    "action:endpoint": "https://dead.watch/signup"
+  }
+}
+```
+
+</details>
+
+### 22.4 Product (Dossier)
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "Product",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "Dossier",
+  "identity:type": "Product",
+  "identity:tagline": "Client-ready audits without the SEMrush bill",
+  "identity:url": "https://ferretdev.com/products/dossier",
+
+  "local:city": "Grande Cache",
+  "local:country": "CA",
+  "local:reach:model": "global",
+
+  "for:agents:context": "Dossier is a WordPress plugin that generates SEO and performance audit reports for agencies. Outputs presence.w4-compliant identity files automatically.",
+  "for:agents:keywords": ["SEO audit", "performance audit", "WordPress plugin", "agency reporting"],
+  "for:agents:capabilities": ["SEO auditing", "performance analysis", "presence.w4 generation", "client reporting"],
+
+  "blocks": [
+    {
+      "block:type": "ProductBlock",
+      "block:name": "Dossier Annual License",
+      "block:description": "Annual license, unlimited client sites",
+      "block:price": 199,
+      "block:price:currency": "USD",
+      "block:url": "https://ferretdev.com/products/dossier"
+    }
+  ],
+
+  "actions:primary": {
+    "action:type": "purchase",
+    "action:label": "Get Dossier",
+    "action:endpoint": "https://ferretdev.com/products/dossier"
+  }
+}
+```
+
+</details>
+
+### 22.5 Person
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "Person",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "Shawn McGinnis",
+  "identity:type": "Person",
+  "identity:tagline": "WordPress developer and agency tooling builder",
+  "identity:url": "https://ferretdev.com",
+
+  "local:city": "Grande Cache",
+  "local:region": "Alberta",
+  "local:country": "CA",
+  "local:reach:model": "remote-first",
+
+  "for:agents:context": "Shawn McGinnis is a WordPress developer and the founder of FerretDev. Builds plugins and tools for agencies, including DeadWatch, Dossier, and the LSD framework. Editor of the presence.w4 specification.",
+  "for:agents:keywords": ["WordPress developer", "plugin developer", "agency tools", "presence.w4"],
+  "for:agents:capabilities": ["WordPress development", "plugin development", "site monitoring", "agency consulting"],
+
+  "actions:primary": {
+    "action:type": "email",
+    "action:label": "Email Shawn",
+    "action:endpoint": "mailto:smcginnis@ferretdev.com"
+  }
+}
+```
+
+</details>
+
+### 22.6 Article
+
+<details>
+<summary>View example</summary>
+
+```json
+{
+  "meta:schema": "https://web4presence.org/schema/2026-04-25",
+  "meta:type": "Article",
+  "meta:version": "0.2",
+  "meta:updated": "2026-04-25T14:00:00Z",
+  "meta:language": "en-CA",
+  "meta:ttl": 86400,
+
+  "identity:name": "Why Schema.org Isn't Built for AI Agents",
+  "identity:type": "Article",
+  "identity:url": "https://web4presence.org/blog/why-not-schema-org",
+  "identity:description": "An argument for why structured data designed for traditional search engines is the wrong shape for AI agent consumption, and what to do about it.",
+
+  "local:city": "Grande Cache",
+  "local:country": "CA",
+  "local:reach:model": "global",
+
+  "for:agents:context": "Article arguing that Schema.org's design assumptions — page-embedded JSON-LD parsed by search engine crawlers — don't fit AI agent consumption patterns. Proposes presence.w4 as an alternative.",
+  "for:agents:keywords": ["schema.org", "AI agents", "structured data", "presence.w4"],
+
+  "actions:primary": {
+    "action:type": "follow",
+    "action:label": "Read Article",
+    "action:endpoint": "https://web4presence.org/blog/why-not-schema-org"
+  }
+}
+```
+
+</details>
+
+## 23. Compatibility
+
+### 23.1 Schema.org
+
+`presence.w4` does not replace Schema.org. A publisher **MAY** (and is encouraged to) continue publishing Schema.org JSON-LD on their website pages for traditional search engine consumption, while also publishing `presence.w4` for AI agent consumption.
+
+The `compat:schema-org` field **SHOULD** point to a JSON-LD document for the same entity if one exists.
+
+### 23.2 llms.txt
+
+`llms.txt` describes a site's content. `presence.w4` describes a site's identity. They are complementary, not competing.
+
+The `compat:llms-txt` field **SHOULD** point to an `llms.txt` file if one exists.
+
+### 23.3 robots.txt and sitemaps
+
+These remain in their existing roles. `presence.w4` does not modify or replace them.
+
+## 24. Security considerations
+
+### 24.1 The file is public
+
+A `presence.w4` file is published at a public endpoint and is intended to be world-readable.
+
+> [!CAUTION]
+> Publishers **MUST NOT** include private or sensitive information.
+
+### 24.2 Trust attestations require verification
+
+A `trust:verified: true` claim is meaningless on its own. Consumers **MUST** verify the `trust:credential` URL before relying on the trust block.
+
+### 24.3 Spoofing
+
+A presence file can claim any identity. Without a verified `trust:` block, consumers **MUST** treat the document's identity claims as self-asserted, not authoritative.
+
+### 24.4 TTL and freshness
+
+Stale presence files mislead consumers. Publishers **SHOULD** set realistic `meta:ttl` values and **SHOULD** update `meta:updated` whenever content changes.
+
+## 25. Privacy considerations
+
+This specification describes information that the publisher has chosen to make public. It does not define any mechanism for collecting information about consumers, agents, or end-users.
+
+Consumers fetching `presence.w4` files generate normal web access logs at the publisher's server. This is no different from any other public web request.
+
+## 26. Versioning
+
+This specification uses semantic versioning at the major.minor level.
+
+| Range | Meaning |
+|---|---|
+| **v0.x** | Draft, breaking changes possible |
+| **v1.0** | First stable release. Within 1.x, only additive changes are permitted. |
+| **v2.0+** | Reserved for future incompatible revisions |
+
+The schema URL embeds the version. Consumers **SHOULD** branch on the schema URL or `meta:version` field when handling fields that have changed across versions.
+
+### 26.1 Roadmap to v0.3
+
+Planned for v0.3:
+
+- A `meta:extensions` array for declaring active extensions
+- Full field definitions for the remaining block types in [§14.2](#142-blocktype) (HeroBlock, TeamBlock, ReviewBlock, EventBlock, GalleryBlock, FaqBlock, SocialBlock, OfferBlock, LocationBlock, CredentialBlock)
+- The HoursBlock type for richer scheduling (holidays, multiple shifts, seasonal hours)
+- Initial extension specifications: retail, commerce, person
+
+## 27. Acknowledgments
+
+This specification draws on prior work in the structured data space, particularly Schema.org, JSON-LD, the W3C Verifiable Credentials Data Model, and the `llms.txt` initiative. It is informed by the practical limits encountered when AI agents attempt to extract structured information from contemporary web pages.
+
+## 28. References
+
+- [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) — Key words for use in RFCs to Indicate Requirement Levels
+- [RFC 8615](https://www.rfc-editor.org/rfc/rfc8615) — Well-Known Uniform Resource Identifiers
+- [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339) — Date and Time on the Internet (ISO 8601 profile)
+- [BCP 47](https://www.rfc-editor.org/info/bcp47) — Tags for Identifying Languages
+- [ISO 3166-1](https://www.iso.org/iso-3166-country-codes.html) — Country codes
+- [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html) — Currency codes
+- [WGS84](https://en.wikipedia.org/wiki/World_Geodetic_System) — World Geodetic System 1984
+- [W3C Verifiable Credentials Data Model](https://www.w3.org/TR/vc-data-model/)
+- [Schema.org](https://schema.org/)
+- [llms.txt](https://llmstxt.org/)
+
+---
+
+## Appendix A: Changelog
+
+### v0.2 — 2026-04-25
+
+Expanded specification.
+
+- Formalized standards-document structure (abstract, status, design principles, terminology, security/privacy considerations, versioning, references)
+- Added the `brand:` namespace with logo, color, font, and voice fields
+- Expanded the `trust:` namespace with `level`, `issuer`, `credential`, `proof`, `issued`, and `expires` fields to support multi-tier verification, including future government-recognized attestation
+- Added the `Article` value to the `identity:type` controlled vocabulary for per-page presence files
+- Added discovery layer specification (HTTP `Link` header, HTML `<link>`, llms.txt and robots.txt integration)
+- Added validation scoring rubric
+- Added direct endpoint (`/presence.w4`) alongside `.well-known/` path
+- Added "Identity is not optional" as an explicit design principle
+- Added examples for Organization (Agency type), Service, Product, Person, and Article
+
+### v0.1 — 2026-03-17
+
+Initial draft. Core namespaces, required fields, controlled vocabularies, single LocalBusiness example.
